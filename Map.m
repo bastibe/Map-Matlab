@@ -8,7 +8,8 @@ classdef Map < handle
             'landscape', 'http://a.tile.thunderforest.com/landscape', ...
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
         ax
-        cache = struct('x', {}, 'y', {}, 'zoom', {}, 'data', {});
+        cache = struct('x', {}, 'y', {}, 'zoom', {}, ...
+                       'style', {}, 'data', {});
     end
 
     properties
@@ -81,6 +82,7 @@ classdef Map < handle
                     obj.cache = [obj.cache, ...
                                  struct('x', x, 'y', y, ...
                                         'zoom', obj.zoomLevel, ...
+                                        'style', obj.style, ...
                                         'data', imagedata)];
                     image(obj.ax, ...
                           obj.x2lon([x, x+1]), ...
@@ -187,8 +189,10 @@ classdef Map < handle
                 return
             end
             zoom = obj.zoomLevel;
+            style = obj.style;
             for entry=obj.cache
-                if entry.x == x && entry.y == y && entry.zoom == zoom
+                if entry.x == x && entry.y == y && ...
+                   entry.zoom == zoom && strcmp(entry.style, style)
                     imagedata = entry.data;
                     return
                 end
