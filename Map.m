@@ -22,9 +22,11 @@ classdef Map < handle
     methods
         function obj = Map(ax, coords, style)
             obj.ax = ax;
-            narginchk(2, 3);
-            obj.coords = coords;
-            if nargin == 3
+            narginchk(1, 3);
+            if nargin >= 2
+                obj.coords = coords;
+            end
+            if nargin >= 3
                 obj.style = style;
             else
                 obj.style = 'osm';
