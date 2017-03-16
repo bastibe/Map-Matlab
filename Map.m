@@ -65,8 +65,8 @@ classdef Map < handle
             ylim(obj.ax, [obj.coords.minLat, obj.coords.maxLat]);
 
             % download tiles
-            for x=minX:maxX
-                for y=minY:maxY
+            for x=(minX-1):(maxX+1)
+                for y=(minY-1):(maxY+1)
                     imagedata = obj.searchCache(x, y);
                     if isempty(imagedata)
                         try
