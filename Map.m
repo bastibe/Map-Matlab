@@ -68,6 +68,11 @@ classdef Map < handle
             % download tiles
             for x=(minX-1):(maxX+1)
                 for y=(minY-1):(maxY+1)
+                    % skip impossible tiles
+                    if x < 0 || x > (2^obj.zoomLevel - 1) || ...
+                       y < 0 || y > (2^obj.zoomLevel - 1)
+                        continue
+                    end
                     imagedata = obj.searchCache(x, y);
                     if isempty(imagedata)
                         try
@@ -75,7 +80,9 @@ classdef Map < handle
                         catch
                             warning(['couldn''t download tile at ', ...
                                      obj.formatLatLon(obj.y2lat(y), ...
-                                                      obj.x2lon(x))]);
+                                                      obj.x2lon(x)), ...
+                                     sprintf(' (zoom level %i)', ...
+                                             obj.zoomLevel)]);
                             continue
                         end
                     end
@@ -100,6 +107,8 @@ classdef Map < handle
             lonWidth = (obj.coords.maxLon-obj.coords.minLon);
             lonZoom = ceil(log2(360/lonWidth));
             zoom = min([lonZoom, latZoom])+1; % zoom in by 1
+            zoom = min([zoom, 18]);
+            zoom = max([0, zoom]);
         end
 
         function set.coords(obj, coords)
