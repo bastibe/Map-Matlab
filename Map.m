@@ -8,6 +8,7 @@ classdef Map < handle
             'landscape', 'http://a.tile.thunderforest.com/landscape', ...
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
         ax
+        cache = struct('x', {}, 'y', {}, 'zoom', {}, 'data', {});
     end
 
     properties
@@ -66,14 +67,21 @@ classdef Map < handle
             % download tiles
             for x=minX:maxX
                 for y=minY:maxY
-                    try
-                        imagedata = obj.downloadTile(x, y);
-                    catch
-                        warning(['couldn''t download tile at ', ...
-                                 obj.formatLatLon(obj.y2lat(y), ...
-                                                  obj.x2lon(x))]);
-                        continue
+                    imagedata = obj.searchCache(x, y);
+                    if isempty(imagedata)
+                        try
+                            imagedata = obj.downloadTile(x, y);
+                        catch
+                            warning(['couldn''t download tile at ', ...
+                                     obj.formatLatLon(obj.y2lat(y), ...
+                                                      obj.x2lon(x))]);
+                            continue
+                        end
                     end
+                    obj.cache = [obj.cache, ...
+                                 struct('x', x, 'y', y, ...
+                                        'zoom', obj.zoomLevel, ...
+                                        'data', imagedata)];
                     image(obj.ax, ...
                           obj.x2lon([x, x+1]), ...
                           obj.y2lat([y, y+1]), ...
@@ -170,6 +178,20 @@ classdef Map < handle
                 str = [str sprintf('%.3f E', lon)];
             else
                 str = [str sprintf('%.3f W', -lon)];
+            end
+        end
+
+        function imagedata = searchCache(obj, x, y)
+            imagedata = [];
+            if isempty(obj.cache)
+                return
+            end
+            zoom = obj.zoomLevel;
+            for entry=obj.cache
+                if entry.x == x && entry.y == y && entry.zoom == zoom
+                    imagedata = entry.data;
+                    return
+                end
             end
         end
     end
