@@ -17,6 +17,7 @@ classdef Map < handle
 
     properties (Dependent)
         zoomLevel
+        styles
     end
 
     methods
@@ -106,6 +107,10 @@ classdef Map < handle
             end
             obj.style = style;
             obj.redraw();
+        end
+
+        function styles = get.styles(obj)
+            styles = fieldnames(obj.urls);
         end
 
         function [minX, maxX, minY, maxY] = tileIndices(obj)
