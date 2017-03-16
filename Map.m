@@ -84,12 +84,12 @@ classdef Map < handle
         end
 
         function zoom = get.zoomLevel(obj)
-            % make sure we are at least 4 tiles high/wide
+            % make sure we are at least 2 tiles high/wide
             latHeight = (obj.coords.maxLat-obj.coords.minLat);
             latZoom = ceil(log2(170.1022/latHeight));
             lonWidth = (obj.coords.maxLon-obj.coords.minLon);
             lonZoom = ceil(log2(360/lonWidth));
-            zoom = max([lonZoom, latZoom])+1; % zoom in by 1
+            zoom = min([lonZoom, latZoom])+1; % zoom in by 1
         end
 
         function set.coords(obj, coords)
