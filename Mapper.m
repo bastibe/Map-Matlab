@@ -14,16 +14,23 @@ classdef Mapper < handle
 
     properties
         place = []
+        style = []
     end
 
     methods
-        function obj = Mapper(place)
+        function obj = Mapper(place, style)
             obj.fig = figure();
             obj.mapax = axes(obj.fig);
             obj.mapax.Position = [0.05, 0.15, 0.9, 0.7];
             obj.map = Map(obj.mapax);
-            if nargin == 0
+            if nargin < 1
                 place = [];
+            end
+            if nargin < 2
+                style = [];
+            end
+            if isempty(style)
+                style = obj.map.style;
             end
 
             obj.placeLabel = uicontrol();
@@ -65,9 +72,8 @@ classdef Mapper < handle
             obj.zoomHandle = zoom(obj.fig);
             obj.zoomHandle.ActionPostCallback = @obj.panZoomCallback;
 
-            if nargin == 1
-                obj.place = place;
-            end
+            obj.style = style;
+            obj.place = place;
         end
 
         function delete(obj)
@@ -119,9 +125,16 @@ classdef Mapper < handle
             obj.lockPanZoom();
             coords = obj.downloadCoords(place);
             obj.map.coords = coords;
+            obj.place = place;
             obj.unlockPanZoom();
         end
 
+        function set.style(obj, style)
+            obj.lockPanZoom();
+            obj.map.style = style;
+            obj.style = style;
+            obj.unlockPanZoom();
+        end
 
         function placeEditCallback(obj, target, event)
             obj.lockPanZoom();
@@ -131,7 +144,7 @@ classdef Mapper < handle
 
         function styleSelectCallback(obj, target, event)
             obj.lockPanZoom();
-            obj.map.style = target.String{target.Value};
+            obj.style = target.String{target.Value};
             obj.unlockPanZoom();
         end
 
