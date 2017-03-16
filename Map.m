@@ -1,5 +1,5 @@
 classdef Map < handle
-    properties
+    properties (Access='private')
         urls = struct(...
             'osm', 'http://a.tile.openstreetmap.org', ...
             'hot', 'http://a.tile.openstreetmap.fr/hot', ...
@@ -8,8 +8,11 @@ classdef Map < handle
             'landscape', 'http://a.tile.thunderforest.com/landscape', ...
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
         ax
-        coords
-        style
+    end
+
+    properties
+        coords = []
+        style = []
     end
 
     properties (Dependent)
@@ -26,10 +29,13 @@ classdef Map < handle
             else
                 obj.style = 'osm';
             end
-            obj.draw();
         end
 
-        function draw(obj)
+        function redraw(obj)
+            if isempty(obj.coords) || isempty(obj.style)
+                return
+            end
+
             [minX, maxX, minY, maxY] = obj.tileIndices();
 
             % set figure to the correct aspect ratio
@@ -80,6 +86,7 @@ classdef Map < handle
                        'and ''maxLat'' in degrees']);
             end
             obj.coords = coords;
+            obj.redraw();
         end
 
         function set.style(obj, style)
@@ -92,6 +99,7 @@ classdef Map < handle
                        [validFields{:}]]);
             end
             obj.style = style;
+            obj.redraw();
         end
 
         function [minX, maxX, minY, maxY] = tileIndices(obj)
