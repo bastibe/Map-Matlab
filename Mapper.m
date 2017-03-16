@@ -8,6 +8,8 @@ classdef Mapper < handle
         styleLabel
         stylePopup
         activityLabel
+        panHandle
+        zoomHandle
     end
 
     properties
@@ -58,13 +60,14 @@ classdef Mapper < handle
             obj.activityLabel.HorizontalAlignment = 'center';
             obj.activityLabel.Position = [0.4, 0.02, 0.2, 0.05];
 
+            obj.panHandle = pan(obj.fig);
+            obj.panHandle.ActionPostCallback = @obj.panZoomCallback;
+            obj.zoomHandle = zoom(obj.fig);
+            obj.zoomHandle.ActionPostCallback = @obj.panZoomCallback;
+
             if nargin == 1
                 obj.place = place;
             end
-            panHandle = pan(obj.fig);
-            panHandle.ActionPostCallback = @obj.panZoomCallback;
-            zoomHandle = zoom(obj.fig);
-            zoomHandle.ActionPostCallback = @obj.panZoomCallback;
         end
 
         function delete(obj)
@@ -84,38 +87,65 @@ classdef Mapper < handle
                             'maxLat', geometry.northeast.lat);
         end
 
-        function set.place(obj, place)
+        function lockPanZoom(obj)
             obj.activityLabel.String = 'Downloading...';
+            setAllowAxesZoom(obj.zoomHandle, obj.mapax, false);
+            setAllowAxesPan(obj.panHandle, obj.mapax, false);
+            obj.placeEdit.Enable = 'off';
+            obj.stylePopup.Enable = 'off';
+            for tag={'Exploration.ZoomIn', ...
+                     'Exploration.ZoomOut', ...
+                     'Exploration.Pan'}
+                button = findall(obj.fig, 'Tag', tag{1});
+                button.Enable = 'off';
+            end
+        end
+
+        function unlockPanZoom(obj)
+            setAllowAxesPan(obj.panHandle, obj.mapax, true);
+            setAllowAxesZoom(obj.zoomHandle, obj.mapax, true);
+            obj.placeEdit.Enable = 'on';
+            obj.stylePopup.Enable = 'on';
+            for tag={'Exploration.ZoomIn', ...
+                     'Exploration.ZoomOut', ...
+                     'Exploration.Pan'}
+                button = findall(obj.fig, 'Tag', tag{1});
+                button.Enable = 'on';
+            end
+            obj.activityLabel.String = '';
+        end
+
+        function set.place(obj, place)
+            obj.lockPanZoom();
             coords = obj.downloadCoords(place);
             obj.map.coords = coords;
-            obj.place = place;
-            obj.activityLabel.String = '';
+            obj.unlockPanZoom();
         end
 
 
         function placeEditCallback(obj, target, event)
-            obj.activityLabel.String = 'Downloading...';
+            obj.lockPanZoom();
             obj.place = target.String;
-            obj.activityLabel.String = '';
+            obj.unlockPanZoom();
         end
 
         function styleSelectCallback(obj, target, event)
-            obj.activityLabel.String = 'Downloading...';
+            obj.lockPanZoom();
             obj.map.style = target.String{target.Value};
-            obj.activityLabel.String = '';
+            obj.unlockPanZoom();
         end
 
         function panZoomCallback(obj, target, event)
             if event.Axes ~= obj.mapax
                 return
             end
-            obj.activityLabel.String = 'Downloading...';
+            obj.lockPanZoom();
             coords = struct('minLon', obj.mapax.XLim(1), ...
                             'maxLon', obj.mapax.XLim(2), ...
                             'minLat', obj.mapax.YLim(1), ...
                             'maxLat', obj.mapax.YLim(2));
             obj.map.coords = coords;
-            obj.activityLabel.String = '';
+            obj.unlockPanZoom();
         end
     end
 end
