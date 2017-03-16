@@ -66,7 +66,14 @@ classdef Map < handle
             % download tiles
             for x=minX:maxX
                 for y=minY:maxY
-                    imagedata = obj.downloadTile(x, y);
+                    try
+                        imagedata = obj.downloadTile(x, y);
+                    catch
+                        warning(['couldn''t download tile at ', ...
+                                 obj.formatLatLon(obj.y2lat(y), ...
+                                                  obj.x2lon(x))]);
+                        continue
+                    end
                     image(obj.ax, ...
                           obj.x2lon([x, x+1]), ...
                           obj.y2lat([y, y+1]), ...
@@ -150,6 +157,20 @@ classdef Map < handle
         function lat = y2lat(obj, y)
             lat_rad = atan(sinh(pi * (1 - 2 * y / (2^obj.zoomLevel))));
             lat = lat_rad * 180 / pi;
+        end
+
+        function str = formatLatLon(obj, lat, lon)
+            str = '';
+            if lat > 0
+                str = [str sprintf('%.3f N, ', lat)];
+            else
+                str = [str sprintf('%.3f S, ', -lat)];
+            end
+            if lon > 0
+                str = [str sprintf('%.3f E', lon)];
+            else
+                str = [str sprintf('%.3f W', -lon)];
+            end
         end
     end
 
