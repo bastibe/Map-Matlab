@@ -9,7 +9,7 @@ classdef Map < handle
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
         ax
         coords
-        style = 'osm'
+        style
     end
 
     properties (Dependent)
@@ -23,6 +23,8 @@ classdef Map < handle
             obj.coords = coords;
             if nargin == 3
                 obj.style = style;
+            else
+                obj.style = 'osm';
             end
             obj.draw();
         end
@@ -68,6 +70,28 @@ classdef Map < handle
             lonWidth = (obj.coords.maxLon-obj.coords.minLon);
             lonZoom = ceil(log2(360/lonWidth));
             zoom = max([lonZoom, latZoom])+1; % zoom in by 1
+        end
+
+        function set.coords(obj, coords)
+            if ~isa(coords, 'struct') || ...
+               ~all(isfield(coords, {'minLon', 'maxLon', 'minLat', 'maxLat'}))
+                error(['coords must be a struct with fields ', ...
+                       '''minLon'', ''maxLon'', ''minLat'', ', ...
+                       'and ''maxLat'' in degrees']);
+            end
+            obj.coords = coords;
+        end
+
+        function set.style(obj, style)
+            if ~isfield(obj.urls, style)
+                validFields = fieldnames(obj.urls);
+                % format field names for listing them:
+                validFields = cellfun(@(f)['''' f ''' '], validFields, ...
+                                      'uniformoutput', false);
+                error(['style must be one of ', ...
+                       [validFields{:}]]);
+            end
+            obj.style = style;
         end
 
         function [minX, maxX, minY, maxY] = tileIndices(obj)
