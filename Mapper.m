@@ -1,8 +1,7 @@
 classdef Mapper < handle
-    properties (Access='private')
+    properties (Hidden)
         fig
         map
-        mapax
         placeLabel
         placeEdit
         styleLabel
@@ -20,9 +19,9 @@ classdef Mapper < handle
     methods
         function obj = Mapper(place, style)
             obj.fig = figure();
-            obj.mapax = axes(obj.fig);
-            obj.mapax.Position = [0.05, 0.15, 0.9, 0.7];
-            obj.map = Map(obj.mapax);
+            mapax = axes(obj.fig);
+            mapax.Position = [0.05, 0.15, 0.9, 0.7];
+            obj.map = Map(mapax);
             if nargin < 1
                 place = [];
             end
@@ -95,8 +94,8 @@ classdef Mapper < handle
 
         function lockPanZoom(obj)
             obj.activityLabel.String = 'Downloading...';
-            setAllowAxesZoom(obj.zoomHandle, obj.mapax, false);
-            setAllowAxesPan(obj.panHandle, obj.mapax, false);
+            setAllowAxesZoom(obj.zoomHandle, obj.map.ax, false);
+            setAllowAxesPan(obj.panHandle, obj.map.ax, false);
             obj.placeEdit.Enable = 'off';
             obj.stylePopup.Enable = 'off';
             for tag={'Exploration.ZoomIn', ...
@@ -108,8 +107,8 @@ classdef Mapper < handle
         end
 
         function unlockPanZoom(obj)
-            setAllowAxesPan(obj.panHandle, obj.mapax, true);
-            setAllowAxesZoom(obj.zoomHandle, obj.mapax, true);
+            setAllowAxesPan(obj.panHandle, obj.map.ax, true);
+            setAllowAxesZoom(obj.zoomHandle, obj.map.ax, true);
             obj.placeEdit.Enable = 'on';
             obj.stylePopup.Enable = 'on';
             for tag={'Exploration.ZoomIn', ...
@@ -149,14 +148,14 @@ classdef Mapper < handle
         end
 
         function panZoomCallback(obj, target, event)
-            if event.Axes ~= obj.mapax
+            if event.Axes ~= obj.map.ax
                 return
             end
             obj.lockPanZoom();
-            coords = struct('minLon', obj.mapax.XLim(1), ...
-                            'maxLon', obj.mapax.XLim(2), ...
-                            'minLat', obj.mapax.YLim(1), ...
-                            'maxLat', obj.mapax.YLim(2));
+            coords = struct('minLon', obj.map.ax.XLim(1), ...
+                            'maxLon', obj.map.ax.XLim(2), ...
+                            'minLat', obj.map.ax.YLim(1), ...
+                            'maxLat', obj.map.ax.YLim(2));
             obj.map.coords = coords;
             obj.unlockPanZoom();
         end

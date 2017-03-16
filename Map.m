@@ -1,5 +1,5 @@
 classdef Map < handle
-    properties (Access='private')
+    properties (Hidden)
         urls = struct(...
             'osm', 'http://a.tile.openstreetmap.org', ...
             'hot', 'http://a.tile.openstreetmap.fr/hot', ...
@@ -7,7 +7,6 @@ classdef Map < handle
             'opm', 'http://www.openptmap.org/tiles', ...
             'landscape', 'http://a.tile.thunderforest.com/landscape', ...
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
-        ax
         cache = struct('x', {}, 'y', {}, 'zoom', {}, ...
                        'style', {}, 'data', {});
     end
@@ -15,6 +14,7 @@ classdef Map < handle
     properties
         coords = []
         style = []
+        ax
     end
 
     properties (Dependent)
