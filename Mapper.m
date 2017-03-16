@@ -3,7 +3,6 @@ classdef Mapper < handle
         fig
         map
         mapax
-        pan
         placeLabel
         placeEdit
         styleLabel
@@ -23,9 +22,10 @@ classdef Mapper < handle
             if nargin == 1
                 obj.place = place;
             end
-            obj.pan = pan(obj.fig);
-            obj.pan.ActionPostCallback = @obj.panCallback;
-
+            panHandle = pan(obj.fig);
+            panHandle.ActionPostCallback = @obj.panZoomCallback;
+            zoomHandle = zoom(obj.fig);
+            zoomHandle.ActionPostCallback = @obj.panZoomCallback;
 
             obj.placeLabel = uicontrol();
             obj.placeLabel.Style = 'Text';
@@ -41,7 +41,6 @@ classdef Mapper < handle
             obj.placeEdit.Callback = @obj.placeEditCallback;
             obj.placeEdit.String = obj.place;
 
-
             obj.styleLabel = uicontrol();
             obj.styleLabel.Style = 'Text';
             obj.styleLabel.String = 'Style:';
@@ -51,7 +50,7 @@ classdef Mapper < handle
             obj.stylePopup = uicontrol();
             obj.stylePopup.Style = 'Popupmenu';
             obj.stylePopup.Units = 'normalized';
-            obj.stylePopup.Position = [0.72, 0.89, 0.2, 0.05];
+            obj.stylePopup.Position = [0.62, 0.89, 0.2, 0.05];
             obj.stylePopup.String = obj.map.styles;
             obj.stylePopup.Callback = @obj.styleSelectCallback;
         end
@@ -87,7 +86,7 @@ classdef Mapper < handle
             obj.map.style = target.String{target.Value};
         end
 
-        function panCallback(obj, target, event)
+        function panZoomCallback(obj, target, event)
             if event.Axes ~= obj.mapax
                 return
             end
