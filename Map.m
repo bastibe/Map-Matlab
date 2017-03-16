@@ -36,6 +36,10 @@ classdef Map < handle
                 return
             end
 
+            if ~ishandle(obj.ax)
+                error('can''t draw on closed axes');
+            end
+
             [minX, maxX, minY, maxY] = obj.tileIndices();
 
             % set figure to the correct aspect ratio
