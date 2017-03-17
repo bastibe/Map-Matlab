@@ -83,6 +83,7 @@ classdef Mapper < handle
 
         function coords = downloadCoords(obj, place)
             baseurl = 'https://maps.googleapis.com/maps/api/geocode/json';
+            place = urlencode(place);
             url = sprintf('%s?&address=%s', baseurl, place);
             data = jsondecode(urlread(url));
             geometry = data.results.geometry.bounds;
@@ -122,7 +123,14 @@ classdef Mapper < handle
 
         function set.place(obj, place)
             obj.lockPanZoom();
-            coords = obj.downloadCoords(place);
+            try
+                coords = obj.downloadCoords(place);
+            catch
+                obj.activityLabel.String = ['can''t find ' place];
+                pause(1);
+                obj.unlockPanZoom();
+                return
+            end
             obj.map.coords = coords;
             obj.place = place;
             obj.unlockPanZoom();
