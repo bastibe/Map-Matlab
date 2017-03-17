@@ -60,12 +60,11 @@ classdef Map < handle
                                 obj.y2lat(minY));
             pixelWidth = pixelTileWidth/degTileWidth*degWidth;
             pixelHeight = pixelTileHeight/degTileHeight*degHeight;
-            pbaspect(obj.ax, [pixelWidth/pixelHeight, 1, 1]);
+            obj.ax.PlotBoxAspectRatio = [pixelWidth/pixelHeight, 1, 1];
 
-            hold(obj.ax, 'on');
-            axis(obj.ax, 'xy');
-            xlim(obj.ax, [obj.coords.minLon, obj.coords.maxLon]);
-            ylim(obj.ax, [obj.coords.minLat, obj.coords.maxLat]);
+            obj.ax.NextPlot = 'add';
+            obj.ax.XLim = [obj.coords.minLon, obj.coords.maxLon];
+            obj.ax.YLim = [obj.coords.minLat, obj.coords.maxLat];
 
             % download tiles
             for x=(minX-1):(maxX+1)
