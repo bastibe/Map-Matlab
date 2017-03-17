@@ -37,6 +37,8 @@ classdef Map < handle
         end
 
         function redraw(obj)
+            persistent previousZoom
+
             if isempty(obj.coords) || isempty(obj.style)
                 return
             end
@@ -73,7 +75,14 @@ classdef Map < handle
                        y < 0 || y > (2^obj.zoomLevel - 1)
                         continue
                     end
+
+                    % retrieve tile from cache if possible
                     imagedata = obj.searchCache(x, y);
+                    if ~isempty(imagedata) && previousZoom == obj.zoomLevel
+                        continue
+                    end
+
+                    %
                     if isempty(imagedata)
                         try
                             imagedata = obj.downloadTile(x, y);
@@ -98,6 +107,8 @@ classdef Map < handle
                     drawnow();
                 end
             end
+
+            previousZoom = obj.zoomLevel;
         end
 
         function zoom = get.zoomLevel(obj)
