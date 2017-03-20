@@ -7,8 +7,6 @@ classdef Map < handle
             'opm', 'http://www.openptmap.org/tiles', ...
             'landscape', 'http://a.tile.thunderforest.com/landscape', ...
             'outdoors', 'http://a.tile.thunderforest.com/outdoors');
-        cache = struct('x', {}, 'y', {}, 'zoom', {}, ...
-                       'style', {}, 'data', {});
     end
 
     properties
@@ -32,8 +30,7 @@ classdef Map < handle
             % rare for maps.
             narginchk(1, 3);
             if nargin >= 2
-                obj.ax.XLim = [coords.minLon coords.maxLon];
-                obj.ax.YLim = [coords.minLat coords.maxLat];
+                obj.coords = coords;
             end
             if nargin >= 3
                 obj.style = style;
@@ -53,6 +50,13 @@ classdef Map < handle
             % This is called every time the axis limits change, i.e. on every
             % pan or zoom. To avoid stuttering, do all downloading and
             % redrawing asynchronously:
+
+            % only the latest redraw needs to survive:
+            timers = timerfindall('Tag', 'redraw');
+            if ~isempty(timers)
+                stop(timers)
+            end
+
             t = timer();
             function timerCallback(~, ~)
                 obj.redraw();
@@ -63,12 +67,11 @@ classdef Map < handle
             t.StopFcn = @(~,~)delete(t);
             % set a short delay, otherwise start(t) blocks:
             t.StartDelay = 0.1;
+            t.Tag = 'redraw';
             start(t);
         end
 
         function redraw(obj)
-            persistent previousZoom previousStyle
-
             if isempty(obj.style)
                 return
             end
@@ -86,6 +89,19 @@ classdef Map < handle
             mercatorCorrection = cos(mean(obj.ax.YLim)/180*pi);
             obj.ax.PlotBoxAspectRatio = [mercatorCorrection*aspectRatio, 1, 1];
 
+            % bring current images to the top
+            function yesNo = isCurrent(tile)
+                yesNo = tile.UserData.zoom == obj.zoomLevel && ...
+                        strcmp(tile.UserData.style, obj.style);
+            end
+            tiles = findobj(obj.ax.Children, 'Tag', 'maptile');
+            if ~isempty(tiles)
+                currentTiles = tiles(arrayfun(@isCurrent, tiles));
+                if ~isempty(currentTiles)
+                    uistack(currentTiles, 'top');
+                end
+            end
+
             % download tiles
             for x=(minX-1):(maxX+1)
                 for y=(minY-1):(maxY+1)
@@ -95,15 +111,8 @@ classdef Map < handle
                         continue
                     end
 
-                    % retrieve tile from cache if possible
-                    imagedata = obj.searchCache(x, y);
-                    if ~isempty(imagedata) && previousZoom == obj.zoomLevel && ...
-                       strcmp(previousStyle, obj.style)
-                        continue
-                    end
-
-                    %
-                    if isempty(imagedata)
+                    im = obj.searchCache(x, y);
+                    if isempty(im)
                         try
                             imagedata = obj.downloadTile(x, y);
                         catch
@@ -114,22 +123,22 @@ classdef Map < handle
                                              obj.zoomLevel)]);
                             continue
                         end
+                        im = image(obj.ax, ...
+                                   obj.x2lon([x, x+1]), ...
+                                   obj.y2lat([y, y+1]), ...
+                                   imagedata);
+                        im.UserData = struct('x', x, 'y', y, ...
+                                             'zoom', obj.zoomLevel, ...
+                                             'style', obj.style);
+                        im.Tag = 'maptile';
+                        % skip drawing updated invisible tiles
+                        if x >= minX && x <= maxX && y >= minY && y <= maxY
+                            drawnow();
+                        end
                     end
-                    obj.cache = [obj.cache, ...
-                                 struct('x', x, 'y', y, ...
-                                        'zoom', obj.zoomLevel, ...
-                                        'style', obj.style, ...
-                                        'data', imagedata)];
-                    image(obj.ax, ...
-                          obj.x2lon([x, x+1]), ...
-                          obj.y2lat([y, y+1]), ...
-                          imagedata);
-                    drawnow();
                 end
             end
-
-            previousZoom = obj.zoomLevel;
-            previousStyle = obj.style;
+            drawnow();
         end
 
         function coords = get.coords(obj)
@@ -225,17 +234,20 @@ classdef Map < handle
             end
         end
 
-        function imagedata = searchCache(obj, x, y)
-            imagedata = [];
-            if isempty(obj.cache)
+        function im = searchCache(obj, x, y)
+            im = [];
+            tiles = findobj(obj.ax.Children, 'Tag', 'maptile');
+            if isempty(tiles)
                 return
             end
             zoom = obj.zoomLevel;
             style = obj.style;
-            for entry=obj.cache
-                if entry.x == x && entry.y == y && ...
-                   entry.zoom == zoom && strcmp(entry.style, style)
-                    imagedata = entry.data;
+            for idx=1:length(tiles)
+                entry = tiles(idx);
+                if entry.UserData.x == x && entry.UserData.y == y && ...
+                   entry.UserData.zoom == zoom && ...
+                   strcmp(entry.UserData.style, style)
+                    im = entry;
                     return
                 end
             end
