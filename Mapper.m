@@ -93,79 +93,66 @@ classdef Mapper < handle
                             'maxLat', geometry.northeast.lat);
         end
 
-        function lockPanZoom(obj)
-            obj.activityLabel.String = 'Downloading...';
-            setAllowAxesZoom(obj.zoomHandle, obj.map.ax, false);
-            setAllowAxesPan(obj.panHandle, obj.map.ax, false);
-            obj.placeEdit.Enable = 'off';
-            obj.stylePopup.Enable = 'off';
-            for tag={'Exploration.ZoomIn', ...
-                     'Exploration.ZoomOut', ...
-                     'Exploration.Pan'}
-                button = findall(obj.fig, 'Tag', tag{1});
-                button.Enable = 'off';
-            end
-        end
-
-        function unlockPanZoom(obj)
-            setAllowAxesPan(obj.panHandle, obj.map.ax, true);
-            setAllowAxesZoom(obj.zoomHandle, obj.map.ax, true);
-            obj.placeEdit.Enable = 'on';
-            obj.stylePopup.Enable = 'on';
-            for tag={'Exploration.ZoomIn', ...
-                     'Exploration.ZoomOut', ...
-                     'Exploration.Pan'}
-                button = findall(obj.fig, 'Tag', tag{1});
-                button.Enable = 'on';
-            end
-            obj.activityLabel.String = '';
-        end
-
         function set.place(obj, place)
-            obj.lockPanZoom();
             try
                 coords = obj.downloadCoords(place);
             catch
                 obj.activityLabel.String = ['can''t find ' place];
                 pause(1);
-                obj.unlockPanZoom();
                 return
             end
-            obj.map.coords = coords;
+            obj.setCoordsAsync(coords);
+            % set axis limits to the new place as well
+            obj.map.ax.XLim = [coords.minLon, coords.maxLon];
+            obj.map.ax.YLim = [coords.minLat, coords.maxLat];
+
             obj.place = place;
-            obj.unlockPanZoom();
         end
 
         function set.style(obj, style)
-            obj.lockPanZoom();
             obj.map.style = style;
             obj.style = style;
-            obj.unlockPanZoom();
         end
 
         function placeEditCallback(obj, target, event)
-            obj.lockPanZoom();
             obj.place = target.String;
-            obj.unlockPanZoom();
         end
 
         function styleSelectCallback(obj, target, event)
-            obj.lockPanZoom();
             obj.style = target.String{target.Value};
-            obj.unlockPanZoom();
         end
 
         function panZoomCallback(obj, target, event)
             if event.Axes ~= obj.map.ax
                 return
             end
-            obj.lockPanZoom();
             coords = struct('minLon', obj.map.ax.XLim(1), ...
                             'maxLon', obj.map.ax.XLim(2), ...
                             'minLat', obj.map.ax.YLim(1), ...
                             'maxLat', obj.map.ax.YLim(2));
-            obj.map.coords = coords;
-            obj.unlockPanZoom();
+            obj.setCoordsAsync(coords);
+        end
+
+        function setCoordsAsync(obj, coords)
+        % The point of this function is to call obj.map.coords = coords
+        % However, this operation can take some time, since new tiles
+        % might be downloaded from the internet. For some arcane reason,
+        % zoom/pan callbacks in Matlab CAN NOT TAKE TIME. Thus, this
+        % function relegates the operation to a timer, which will
+        % execute at a later time, without blocking the callback.
+            t = timer();
+            function timerCallback(~, ~)
+                obj.activityLabel.String = 'Downloading...';
+                obj.map.coords = coords;
+                obj.activityLabel.String = '';
+            end
+            t.TimerFcn = @timerCallback;
+            t.BusyMode = 'queue';
+            % make sure the timer doesn't stay around when it's done:
+            t.StopFcn = @(~,~)delete(t);
+            % set a short delay, otherwise start(t) blocks:
+            t.StartDelay = 0.01;
+            start(t);
         end
     end
 end

@@ -61,10 +61,7 @@ classdef Map < handle
             pixelWidth = pixelTileWidth/degTileWidth*degWidth;
             pixelHeight = pixelTileHeight/degTileHeight*degHeight;
             obj.ax.PlotBoxAspectRatio = [pixelWidth/pixelHeight, 1, 1];
-
             obj.ax.NextPlot = 'add';
-            obj.ax.XLim = [obj.coords.minLon, obj.coords.maxLon];
-            obj.ax.YLim = [obj.coords.minLat, obj.coords.maxLat];
 
             % download tiles
             for x=(minX-1):(maxX+1)
