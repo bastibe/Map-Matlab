@@ -91,6 +91,14 @@ classdef Mapper < handle
                             'maxLon', geometry.northeast.lng, ...
                             'minLat', geometry.southwest.lat, ...
                             'maxLat', geometry.northeast.lat);
+            if coords.minLon > coords.maxLon
+                [coords.minLon, coords.maxLon] = ...
+                    deal(coords.maxLon, coords.minLon);
+            end
+            if coords.minLat > coords.maxLat
+                [coords.minLat, coords.maxLat] = ...
+                    deal(coords.maxLat, coords.minLat);
+            end
         end
 
         function set.place(obj, place)
