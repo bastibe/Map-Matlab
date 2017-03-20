@@ -35,6 +35,12 @@ classdef Map < handle
                 obj.style = 'osm';
             end
             obj.ax.NextPlot = 'add';
+            % add invisible markers at the coordinate system edges to allow
+            % infinite panning. Otherwise, panning is restricted to drawn-in
+            % areas.
+            h = scatter(obj.ax, [-180, 180], [-90, 90]);
+            h.MarkerEdgeAlpha = 0; % invisible
+            h.MarkerFaceAlpha = 0; % invisible
         end
 
         function redraw(obj)
