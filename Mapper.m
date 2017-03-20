@@ -7,8 +7,6 @@ classdef Mapper < handle
         styleLabel
         stylePopup
         activityLabel
-        panHandle
-        zoomHandle
     end
 
     properties
@@ -66,11 +64,6 @@ classdef Mapper < handle
             obj.activityLabel.HorizontalAlignment = 'center';
             obj.activityLabel.Position = [0.4, 0.02, 0.2, 0.05];
 
-            obj.panHandle = pan(obj.fig);
-            obj.panHandle.ActionPostCallback = @obj.panZoomCallback;
-            obj.zoomHandle = zoom(obj.fig);
-            obj.zoomHandle.ActionPostCallback = @obj.panZoomCallback;
-
             obj.style = style;
             obj.place = place;
         end
@@ -109,11 +102,7 @@ classdef Mapper < handle
                 pause(1);
                 return
             end
-            obj.setCoordsAsync(coords);
-            % set axis limits to the new place as well
-            obj.map.ax.XLim = [coords.minLon, coords.maxLon];
-            obj.map.ax.YLim = [coords.minLat, coords.maxLat];
-
+            obj.map.coords = coords;
             obj.place = place;
         end
 
@@ -128,39 +117,6 @@ classdef Mapper < handle
 
         function styleSelectCallback(obj, target, event)
             obj.style = target.String{target.Value};
-        end
-
-        function panZoomCallback(obj, target, event)
-            if event.Axes ~= obj.map.ax
-                return
-            end
-            coords = struct('minLon', obj.map.ax.XLim(1), ...
-                            'maxLon', obj.map.ax.XLim(2), ...
-                            'minLat', obj.map.ax.YLim(1), ...
-                            'maxLat', obj.map.ax.YLim(2));
-            obj.setCoordsAsync(coords);
-        end
-
-        function setCoordsAsync(obj, coords)
-        % The point of this function is to call obj.map.coords = coords
-        % However, this operation can take some time, since new tiles
-        % might be downloaded from the internet. For some arcane reason,
-        % zoom/pan callbacks in Matlab CAN NOT TAKE TIME. Thus, this
-        % function relegates the operation to a timer, which will
-        % execute at a later time, without blocking the callback.
-            t = timer();
-            function timerCallback(~, ~)
-                obj.activityLabel.String = 'Downloading...';
-                obj.map.coords = coords;
-                obj.activityLabel.String = '';
-            end
-            t.TimerFcn = @timerCallback;
-            t.BusyMode = 'queue';
-            % make sure the timer doesn't stay around when it's done:
-            t.StopFcn = @(~,~)delete(t);
-            % set a short delay, otherwise start(t) blocks:
-            t.StartDelay = 0.01;
-            start(t);
         end
     end
 end

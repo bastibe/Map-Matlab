@@ -12,7 +12,6 @@ classdef Map < handle
     end
 
     properties
-        coords = []
         style = []
         ax
     end
@@ -20,14 +19,21 @@ classdef Map < handle
     properties (Dependent)
         zoomLevel
         styles
+        coords
     end
 
     methods
         function obj = Map(ax, coords, style)
             obj.ax = ax;
+            % schedule redraw and tile download when axis limits change:
+            addlistener(obj.ax, 'YLim', 'PostSet', @(~, ~)obj.asyncRedraw);
+            % to avoid redrawing on both XLim and YLim changes, we only
+            % look for the latter, assuming that XLim-only changes are
+            % rare for maps.
             narginchk(1, 3);
             if nargin >= 2
-                obj.coords = coords;
+                obj.ax.XLim = [coords.minLon coords.maxLon];
+                obj.ax.YLim = [coords.minLat coords.maxLat];
             end
             if nargin >= 3
                 obj.style = style;
@@ -43,10 +49,27 @@ classdef Map < handle
             h.MarkerFaceAlpha = 0; % invisible
         end
 
-        function redraw(obj)
-            persistent previousZoom
+        function asyncRedraw(obj)
+            % This is called every time the axis limits change, i.e. on every
+            % pan or zoom. To avoid stuttering, do all downloading and
+            % redrawing asynchronously:
+            t = timer();
+            function timerCallback(~, ~)
+                obj.redraw();
+            end
+            t.TimerFcn = @timerCallback;
+            t.BusyMode = 'queue';
+            % make sure the timer doesn't stay around when it's done:
+            t.StopFcn = @(~,~)delete(t);
+            % set a short delay, otherwise start(t) blocks:
+            t.StartDelay = 0.1;
+            start(t);
+        end
 
-            if isempty(obj.coords) || isempty(obj.style)
+        function redraw(obj)
+            persistent previousZoom previousStyle
+
+            if isempty(obj.style)
                 return
             end
 
@@ -74,7 +97,8 @@ classdef Map < handle
 
                     % retrieve tile from cache if possible
                     imagedata = obj.searchCache(x, y);
-                    if ~isempty(imagedata) && previousZoom == obj.zoomLevel
+                    if ~isempty(imagedata) && previousZoom == obj.zoomLevel && ...
+                       strcmp(previousStyle, obj.style)
                         continue
                     end
 
@@ -105,28 +129,30 @@ classdef Map < handle
             end
 
             previousZoom = obj.zoomLevel;
+            previousStyle = obj.style;
+        end
+
+        function coords = get.coords(obj)
+            coords = struct('minLon', obj.ax.XLim(1), ...
+                            'maxLon', obj.ax.XLim(2), ...
+                            'minLat', obj.ax.YLim(1), ...
+                            'maxLat', obj.ax.YLim(2));
+        end
+
+        function set.coords(obj, coords)
+            obj.ax.XLim = [coords.minLon, coords.maxLon];
+            obj.ax.YLim = [coords.minLat, coords.maxLat];
         end
 
         function zoom = get.zoomLevel(obj)
             % make sure we are at least 2 tiles high/wide
-            latHeight = (obj.coords.maxLat-obj.coords.minLat);
+            latHeight = diff(obj.ax.YLim);
             latZoom = ceil(log2(170.1022/latHeight));
-            lonWidth = (obj.coords.maxLon-obj.coords.minLon);
+            lonWidth = diff(obj.ax.XLim);
             lonZoom = ceil(log2(360/lonWidth));
             zoom = min([lonZoom, latZoom])+1; % zoom in by 1
             zoom = min([zoom, 18]);
             zoom = max([0, zoom]);
-        end
-
-        function set.coords(obj, coords)
-            if ~isa(coords, 'struct') || ...
-               ~all(isfield(coords, {'minLon', 'maxLon', 'minLat', 'maxLat'}))
-                error(['coords must be a struct with fields ', ...
-                       '''minLon'', ''maxLon'', ''minLat'', ', ...
-                       'and ''maxLat'' in degrees']);
-            end
-            obj.coords = coords;
-            obj.redraw();
         end
 
         function set.style(obj, style)
@@ -139,7 +165,7 @@ classdef Map < handle
                        [validFields{:}]]);
             end
             obj.style = style;
-            obj.redraw();
+            obj.asyncRedraw();
         end
 
         function styles = get.styles(obj)
@@ -147,14 +173,14 @@ classdef Map < handle
         end
 
         function [minX, maxX, minY, maxY] = tileIndices(obj)
-            minX = obj.lon2x(obj.coords.minLon);
-            maxX = obj.lon2x(obj.coords.maxLon);
+            minX = obj.lon2x(obj.ax.XLim(1));
+            maxX = obj.lon2x(obj.ax.XLim(2));
             if minX > maxX
                 [minX, maxX] = deal(maxX, minX);
             end
 
-            minY = obj.lat2y(obj.coords.minLat);
-            maxY = obj.lat2y(obj.coords.maxLat);
+            minY = obj.lat2y(obj.ax.YLim(1));
+            maxY = obj.lat2y(obj.ax.YLim(2));
             if minY > maxY
                 [minY, maxY] = deal(maxY, minY);
             end
