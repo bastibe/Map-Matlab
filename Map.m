@@ -34,6 +34,7 @@ classdef Map < handle
             else
                 obj.style = 'osm';
             end
+            obj.ax.NextPlot = 'add';
         end
 
         function redraw(obj)
@@ -49,19 +50,12 @@ classdef Map < handle
 
             [minX, maxX, minY, maxY] = obj.tileIndices();
 
-            % set figure to the correct aspect ratio
-            degHeight = (obj.coords.maxLat-obj.coords.minLat);
-            degWidth = (obj.coords.maxLon-obj.coords.minLon);
-            pixelTileWidth = 256*(maxX-minX+1); % 256 px per tile
-            pixelTileHeight = 256*(maxY-minY+1); % 256 px per tile
-            degTileWidth = abs(obj.x2lon(maxX+1) - ...
-                               obj.x2lon(minX));
-            degTileHeight = abs(obj.y2lat(maxY+1) - ...
-                                obj.y2lat(minY));
-            pixelWidth = pixelTileWidth/degTileWidth*degWidth;
-            pixelHeight = pixelTileHeight/degTileHeight*degHeight;
-            obj.ax.PlotBoxAspectRatio = [pixelWidth/pixelHeight, 1, 1];
-            obj.ax.NextPlot = 'add';
+            aspectRatio = diff(obj.ax.XLim)/diff(obj.ax.YLim);
+            % correct skewing due to mercator projection:
+            % (http://wiki.openstreetmap.org/wiki/ ...
+            %  Slippy_map_tilenames#Resolution_and_Scale)
+            mercatorCorrection = cos(mean(obj.ax.YLim)/180*pi);
+            obj.ax.PlotBoxAspectRatio = [mercatorCorrection*aspectRatio, 1, 1];
 
             % download tiles
             for x=(minX-1):(maxX+1)
