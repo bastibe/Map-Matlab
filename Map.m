@@ -89,52 +89,60 @@ classdef Map < handle
             mercatorCorrection = cos(mean(obj.ax.YLim)/180*pi);
             obj.ax.PlotBoxAspectRatio = [mercatorCorrection*aspectRatio, 1, 1];
 
-            % bring current images to the top
-            function yesNo = isCurrent(tile)
-                yesNo = tile.UserData.zoom == obj.zoomLevel && ...
-                        strcmp(tile.UserData.style, obj.style);
+            function yesNo = isCurrent(im)
+            %ISCURRENT identifies current images
+                yesNo = im.UserData.zoom == obj.zoomLevel && ...
+                        strcmp(im.UserData.style, obj.style);
             end
-            tiles = findobj(obj.ax.Children, 'Tag', 'maptile');
-            if ~isempty(tiles)
-                currentTiles = tiles(arrayfun(@isCurrent, tiles));
-                if ~isempty(currentTiles)
-                    uistack(currentTiles, 'top');
+            allTiles = findobj(obj.ax.Children, 'Tag', 'maptile');
+            if ~isempty(allTiles)
+                % bring all current tiles to the top of the tile stack,
+                % by pushing all non-current tiles to the bottom.
+                % (we don't push tiles to the top, to prevent drawing
+                %  over user-created plots)
+                nonCurrentTiles = allTiles(~arrayfun(@isCurrent, allTiles));
+                if ~isempty(nonCurrentTiles)
+                    uistack(nonCurrentTiles, 'bottom');
                 end
             end
+            % this is the offset of the tiles in the drawing order.
+            % Anything above this is user-generated. We should never
+            % draw above this.
+            stackPositionFromTop = length(obj.ax.Children)-length(allTiles);
 
             % download tiles
-            for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel)
-                for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel)
-                    % skip impossible tiles
-                    if x < 0 || x > (2^obj.zoomLevel - 1) || ...
-                       y < 0 || y > (2^obj.zoomLevel - 1)
+            for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel-1)
+                for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel-1)
+                    if ~isempty(obj.searchCache(x, y))
                         continue
                     end
 
-                    im = obj.searchCache(x, y);
-                    if isempty(im)
-                        try
-                            imagedata = obj.downloadTile(x, y);
-                        catch
-                            warning(['couldn''t download tile at ', ...
-                                     obj.formatLatLon(obj.y2lat(y), ...
-                                                      obj.x2lon(x)), ...
-                                     sprintf(' (zoom level %i)', ...
-                                             obj.zoomLevel)]);
-                            continue
-                        end
-                        im = image(obj.ax, ...
-                                   obj.x2lon([x, x+1]), ...
-                                   obj.y2lat([y, y+1]), ...
-                                   imagedata);
-                        im.UserData = struct('x', x, 'y', y, ...
-                                             'zoom', obj.zoomLevel, ...
-                                             'style', obj.style);
-                        im.Tag = 'maptile';
-                        % skip drawing updated invisible tiles
-                        if x >= minX && x <= maxX && y >= minY && y <= maxY
-                            drawnow();
-                        end
+                    try
+                        imagedata = obj.downloadTile(x, y);
+                    catch
+                        warning(['couldn''t download tile at ', ...
+                                 obj.formatLatLon(obj.y2lat(y), ...
+                                                  obj.x2lon(x)), ...
+                                 sprintf(' (zoom level %i)', ...
+                                         obj.zoomLevel)]);
+                        continue
+                    end
+
+                    im = image(obj.ax, ...
+                               obj.x2lon([x, x+1]), ...
+                               obj.y2lat([y, y+1]), ...
+                               imagedata);
+                    im.UserData = struct('x', x, 'y', y, ...
+                                         'zoom', obj.zoomLevel, ...
+                                         'style', obj.style);
+                    im.Tag = 'maptile';
+
+                    % make sure the tile is drawn below other plots:
+                    uistack(im, 'down', stackPositionFromTop);
+
+                    % skip drawing updated invisible tiles for performance
+                    if x >= minX && x <= maxX && y >= minY && y <= maxY
+                        drawnow();
                     end
                 end
             end
