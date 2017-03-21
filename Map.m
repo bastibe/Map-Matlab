@@ -1,5 +1,28 @@
 classdef Map < handle
+    %MAP draws a map on an axes
+    %   The map consists of tiles downloaded from openstreetmap. Whenever
+    %   the axes limits are changed (pan/zoom), or coords is updated, new map
+    %   tiles are downloaded as appropriate. Map tiles are cached, and are
+    %   never re-downloaded.
+    %
+    %   The map will make sure that map tiles are always drawn at the bottom
+    %   of the draw stack, so that users can draw their own things on top of
+    %   the map.
+    %
+    %   The map tiles can be downloaded in one of several styles:
+    %   - 'osm' for OpenStreetMap's default look
+    %   - 'hot' for humanitarian focused OSM base layer
+    %   - 'ocm' for OpenCycleMap
+    %   - 'opm' for public transport map
+    %   - 'landscape' for Thunderforest landscape map
+    %   - 'outdoors' for Thunderforest outdoors map
+    %   (from: http://wiki.openstreetmap.org/wiki/Tiles)
+    %
+    %   All map drawing is done asynchronously, so user interaction with a
+    %   GUI is not interrupted by tile downloads.
+
     properties (Hidden)
+        % a list of OSM map servers where we can download tiles from:
         urls = struct(...
             'osm', 'http://a.tile.openstreetmap.org', ...
             'hot', 'http://a.tile.openstreetmap.fr/hot', ...
@@ -10,18 +33,26 @@ classdef Map < handle
     end
 
     properties
-        style = []
-        ax
+        style = []     % one style from possibleStyles
+        ax             % the axes to draw on
+    end
+
+    properties (Dependent, SetAccess=private)
+        zoomLevel      % the current zoom level (depending on coords)
+        possibleStyles % a list of all possible styles
     end
 
     properties (Dependent)
-        zoomLevel
-        styles
-        coords
+        coords         % the latitude/longitude coordinates to display.
+                       % This is a struct with keys 'minLon', 'maxLon',
+                       % 'minLat', 'maxLat' in degrees.
     end
 
     methods
         function obj = Map(ax, coords, style)
+        %MAP creates a Map on an axes with a certain style at coordinates
+        %   This will download map tiles from the internet.
+
             obj.ax = ax;
             % schedule redraw and tile download when axis limits change:
             addlistener(obj.ax, 'YLim', 'PostSet', @(~, ~)obj.asyncRedraw);
@@ -38,6 +69,7 @@ classdef Map < handle
                 obj.style = 'osm';
             end
             obj.ax.NextPlot = 'add';
+
             % add invisible markers at the coordinate system edges to allow
             % infinite panning. Otherwise, panning is restricted to drawn-in
             % areas.
@@ -47,12 +79,14 @@ classdef Map < handle
         end
 
         function asyncRedraw(obj)
-            % This is called every time the axis limits change, i.e. on every
-            % pan or zoom. To avoid stuttering, do all downloading and
-            % redrawing asynchronously:
+        %ASYNCREDRAW schedules a redraw very soon
+        %   This is called every time the axis limits change, i.e. on every
+        %   pan or zoom. To avoid stuttering, all downloading and
+        %   redrawing is done asynchronously
 
-            % only the latest redraw needs to survive:
-            timers = timerfindall('Tag', 'redraw');
+            % If the user is panning, this function is triggered very often.
+            % But only the latest redraw task needs to survive:
+            timers = timerfindall('Tag', 'mapredraw');
             if ~isempty(timers)
                 stop(timers)
             end
@@ -67,11 +101,18 @@ classdef Map < handle
             t.StopFcn = @(~,~)delete(t);
             % set a short delay, otherwise start(t) blocks:
             t.StartDelay = 0.1;
-            t.Tag = 'redraw';
+            t.Tag = 'mapredraw';
             start(t);
         end
 
         function redraw(obj)
+        %REDRAW (re-) draws the map
+        %   according to obj.coords, obj.style, and obj.zoomLevel.
+        %   Map tiles are downloaded from OSM if necessary.
+        %   Already downloaded tiles are not re-downloaded.
+        %   Map tiles are always drawn below all other plot elements.
+        %   The plot aspect ratio is changed to match the map tiles.
+
             if isempty(obj.style)
                 return
             end
@@ -110,7 +151,8 @@ classdef Map < handle
             % draw above this.
             stackPositionFromTop = length(obj.ax.Children)-length(allTiles);
 
-            % download tiles
+            % download tiles in a one-tile radius around the plot area,
+            % to enable the user to pan a bit without hitting empty tiles:
             for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel-1)
                 for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel-1)
                     if ~isempty(obj.searchCache(x, y))
@@ -157,6 +199,7 @@ classdef Map < handle
         end
 
         function set.coords(obj, coords)
+            % this will trigger a redraw due to the YLim listener:
             obj.ax.XLim = [coords.minLon, coords.maxLon];
             obj.ax.YLim = [coords.minLat, coords.maxLat];
         end
@@ -174,6 +217,7 @@ classdef Map < handle
 
         function set.style(obj, style)
             if ~isfield(obj.urls, style)
+                % format nice error message:
                 validFields = fieldnames(obj.urls);
                 % format field names for listing them:
                 validFields = cellfun(@(f)['''' f ''' '], validFields, ...
@@ -185,11 +229,14 @@ classdef Map < handle
             obj.asyncRedraw();
         end
 
-        function styles = get.styles(obj)
+        function styles = get.possibleStyles(obj)
             styles = fieldnames(obj.urls);
         end
 
         function [minX, maxX, minY, maxY] = tileIndices(obj)
+        %TILEINDICES returns tile indices for the current coords
+        %   according to obj.zoomLevel.
+
             minX = obj.lon2x(obj.ax.XLim(1));
             maxX = obj.lon2x(obj.ax.XLim(2));
             if minX > maxX
@@ -204,6 +251,9 @@ classdef Map < handle
         end
 
         function imagedata = downloadTile(obj, x, y)
+        %DOWNLOADTILE at index X and Y
+        %   according to obj.style and obj.zoomLevel.
+
             baseurl = obj.urls.(obj.style);
             url = sprintf('%s/%i/%d/%d.png', baseurl, obj.zoomLevel, x, y);
             [indices, cmap] = imread(url);
@@ -211,24 +261,39 @@ classdef Map < handle
         end
 
         function x = lon2x(obj, lon)
+        %LON2X convert longitude in degrees to x tile index
+        %   according to obj.zoomLevel.
+
             x = floor(2^obj.zoomLevel * ((lon + 180) / 360));
         end
 
         function y = lat2y(obj, lat)
+        %LAT2Y convert latitude in degrees to y tile index
+        %   according to obj.zoomLevel.
+
             lat = lat / 180 * pi;
             y = floor(2^obj.zoomLevel * (1 - (log(tan(lat) + sec(lat)) / pi)) / 2);
+            y = real(y); % prevent error for invalid lat
         end
 
         function lon = x2lon(obj, x)
+        %X2LON convert x tile index to longitude in degrees
+        %   according to obj.zoomLevel.
+
             lon = x / 2^obj.zoomLevel * 360 - 180;
         end
 
         function lat = y2lat(obj, y)
+        %Y2LAT convert y tile index to latitude in degrees
+        %   according to obj.zoomLevel.
+
             lat_rad = atan(sinh(pi * (1 - 2 * y / (2^obj.zoomLevel))));
             lat = lat_rad * 180 / pi;
         end
 
         function str = formatLatLon(obj, lat, lon)
+        %FORMATLATLON returns string representation oflatitude and longitude
+
             str = '';
             if lat > 0
                 str = [str sprintf('%.3f N, ', lat)];
@@ -243,6 +308,11 @@ classdef Map < handle
         end
 
         function im = searchCache(obj, x, y)
+        %SEARCHCACHE looks for tile image in obj.ax.Children
+        %   according to obj.zoomLevel and obj.style.
+        %   Returns [] if no matching tile image is found.
+        %   Returns an image instance otherwise.
+
             im = [];
             tiles = findobj(obj.ax.Children, 'Tag', 'maptile');
             if isempty(tiles)
