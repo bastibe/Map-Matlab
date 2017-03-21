@@ -103,8 +103,8 @@ classdef Map < handle
             end
 
             % download tiles
-            for x=(minX-1):(maxX+1)
-                for y=(minY-1):(maxY+1)
+            for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel)
+                for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel)
                     % skip impossible tiles
                     if x < 0 || x > (2^obj.zoomLevel - 1) || ...
                        y < 0 || y > (2^obj.zoomLevel - 1)
