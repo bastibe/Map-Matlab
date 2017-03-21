@@ -54,11 +54,21 @@ classdef Map < handle
         %   This will download map tiles from the internet.
 
             obj.ax = ax;
+            obj.ax.NextPlot = 'add';
+
+            % add invisible markers at the coordinate system edges to allow
+            % infinite panning. Otherwise, panning is restricted to drawn-in
+            % areas.
+            h = scatter(obj.ax, [-180, 180], [-90, 90]);
+            h.MarkerEdgeAlpha = 0; % invisible
+            h.MarkerFaceAlpha = 0; % invisible
+
             % schedule redraw and tile download when axis limits change:
             addlistener(obj.ax, 'YLim', 'PostSet', @(~, ~)obj.asyncRedraw);
             % to avoid redrawing on both XLim and YLim changes, we only
             % look for the latter, assuming that XLim-only changes are
             % rare for maps.
+
             narginchk(1, 3);
             if nargin >= 2
                 obj.coords = coords;
@@ -68,14 +78,6 @@ classdef Map < handle
             else
                 obj.style = 'osm';
             end
-            obj.ax.NextPlot = 'add';
-
-            % add invisible markers at the coordinate system edges to allow
-            % infinite panning. Otherwise, panning is restricted to drawn-in
-            % areas.
-            h = scatter(obj.ax, [-180, 180], [-90, 90]);
-            h.MarkerEdgeAlpha = 0; % invisible
-            h.MarkerFaceAlpha = 0; % invisible
         end
 
         function asyncRedraw(obj)
