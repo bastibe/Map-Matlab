@@ -1,25 +1,28 @@
 classdef Map < handle
-    %MAP draws a map on an axes
-    %   The map consists of tiles downloaded from openstreetmap. Whenever
-    %   the axes limits are changed (pan/zoom), or coords is updated, new map
-    %   tiles are downloaded as appropriate. Map tiles are cached, and are
-    %   never re-downloaded.
-    %
-    %   The map will make sure that map tiles are always drawn at the bottom
-    %   of the draw stack, so that users can draw their own things on top of
-    %   the map.
-    %
-    %   The map tiles can be downloaded in one of several styles:
-    %   - 'osm' for OpenStreetMap's default look
-    %   - 'hot' for humanitarian focused OSM base layer
-    %   - 'ocm' for OpenCycleMap
-    %   - 'opm' for public transport map
-    %   - 'landscape' for Thunderforest landscape map
-    %   - 'outdoors' for Thunderforest outdoors map
-    %   (from: http://wiki.openstreetmap.org/wiki/Tiles)
-    %
-    %   All map drawing is done asynchronously, so user interaction with a
-    %   GUI is not interrupted by tile downloads.
+%MAP draws a map on an axes
+%   The map consists of tiles downloaded from openstreetmap. Whenever
+%   the axes limits are changed (pan/zoom), or coords is updated, new map
+%   tiles are downloaded as appropriate. Map tiles are cached, and are
+%   never re-downloaded.
+%
+%   The map will make sure that map tiles are always drawn at the bottom
+%   of the draw stack, so that users can draw their own things on top of
+%   the map.
+%
+%   The map tiles can be downloaded in one of several styles:
+%   - 'osm' for OpenStreetMap's default look
+%   - 'hot' for humanitarian focused OSM base layer
+%   - 'ocm' for OpenCycleMap
+%   - 'opm' for public transport map
+%   - 'landscape' for Thunderforest landscape map
+%   - 'outdoors' for Thunderforest outdoors map
+%   (from: http://wiki.openstreetmap.org/wiki/Tiles)
+%
+%   All map drawing is done asynchronously, so user interaction with a
+%   GUI is not interrupted by tile downloads.
+
+% Copyright (c) 2017, Bastian Bechtold
+% This code is released under the terms of the BSD 3-clause license
 
     properties (Hidden)
         % a list of OSM map servers where we can download tiles from:

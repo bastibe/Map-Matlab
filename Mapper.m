@@ -3,6 +3,9 @@ classdef Mapper < handle
 %   The user can select a place and a style for the map. The place will be
 %   converted to latitude/longitude coordinates using the Google geocoding API.
 
+% Copyright (c) 2017, Bastian Bechtold
+% This code is released under the terms of the BSD 3-clause license
+
     properties
         fig           % the figure to draw on
         map           % the map instance
