@@ -212,7 +212,7 @@ classdef Map < handle
             latZoom = ceil(log2(170.1022/latHeight));
             lonWidth = diff(obj.ax.XLim);
             lonZoom = ceil(log2(360/lonWidth));
-            zoom = min([lonZoom, latZoom])+1; % zoom in by 1
+            zoom = min([lonZoom, latZoom]); % zoom in by 1
             zoom = min([zoom, 18]);
             zoom = max([0, zoom]);
         end
