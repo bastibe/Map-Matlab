@@ -81,15 +81,20 @@ classdef Mapper < handle
         %   returns a struct with fields 'minLon', 'maxLon', 'minLat', and
         %       'maxLat'.
 
-            baseurl = 'https://maps.googleapis.com/maps/api/geocode/json';
+            baseurl = 'https://nominatim.openstreetmap.org/search';
             place = urlencode(place);
-            url = sprintf('%s?&address=%s', baseurl, place);
+            url = sprintf('%s?&city=%s&format=json', baseurl, place);
             data = jsondecode(urlread(url));
-            geometry = data.results.geometry.bounds;
-            coords = struct('minLon', geometry.southwest.lng, ...
-                            'maxLon', geometry.northeast.lng, ...
-                            'minLat', geometry.southwest.lat, ...
-                            'maxLat', geometry.northeast.lat);
+            if isstruct(data)
+                bbox = data(1).boundingbox;
+            elseif iscell(data)
+                bbox = data{1}.boundingbox;
+            end
+            geometry = cellfun(@str2double, bbox);
+            coords = struct('minLon', geometry(3), ...
+                            'maxLon', geometry(4), ...
+                            'minLat', geometry(1), ...
+                            'maxLat', geometry(2));
             if coords.minLon > coords.maxLon
                 [coords.minLon, coords.maxLon] = ...
                     deal(coords.maxLon, coords.minLon);
