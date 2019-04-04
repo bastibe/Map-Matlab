@@ -38,6 +38,7 @@ classdef Map < handle
     properties
         style = []     % one style from possibleStyles
         ax             % the axes to draw on
+        baseZoom       % base zoom modifier
     end
 
     properties (Dependent, SetAccess=private)
@@ -52,7 +53,7 @@ classdef Map < handle
     end
 
     methods
-        function obj = Map(ax, coords, style)
+        function obj = Map(coords, style, ax, baseZoom)
         %MAP creates a Map on an axes with a certain style at coordinates
         %   This will download map tiles from the internet.
 
@@ -80,6 +81,14 @@ classdef Map < handle
                 obj.style = style;
             else
                 obj.style = 'osm';
+            end
+
+            if ~exist("baseZoom") || isempty(baseZoom)
+                obj.baseZoom = 0;
+            elseif isnumeric(baseZoom) && isscalar(baseZoom)
+                obj.baseZoom = baseZoom;
+            else
+                error("given baseZoom is not supported")
             end
         end
 
@@ -210,12 +219,18 @@ classdef Map < handle
         end
 
         function zoom = get.zoomLevel(obj)
-            % make sure we are at least 2 tiles high/wide
+            % get minimum number of tiles for ax size:
+            pixelShape = getpixelposition(obj.ax);
+            minLatTiles = ceil(pixelShape(3) / 256);
+            minLonTiles = ceil(pixelShape(4) / 256);
+            % get zoom level of ax width/height
             latHeight = diff(obj.ax.YLim);
             latZoom = ceil(log2(170.1022/latHeight));
             lonWidth = diff(obj.ax.XLim);
             lonZoom = ceil(log2(360/lonWidth));
-            zoom = min([lonZoom, latZoom]); % zoom in by 1
+            % combine to tile zoom level:
+            zoom = min([lonZoom+minLonTiles, latZoom+minLatTiles]);
+            zoom = zoom + obj.baseZoom;
             zoom = min([zoom, 18]);
             zoom = max([0, zoom]);
         end
