@@ -9,17 +9,42 @@ classdef Map < handle
 %   of the draw stack, so that users can draw their own things on top of
 %   the map.
 %
-%   The map tiles can be downloaded in one of several styles:
-%   - 'osm' for OpenStreetMap's default look
-%   - 'hot' for humanitarian focused OSM base layer
-%   - 'ocm' for OpenCycleMap
-%   - 'opm' for public transport map
-%   - 'landscape' for Thunderforest landscape map
-%   - 'outdoors' for Thunderforest outdoors map
+%   All map drawing is done asynchronously, so user interaction with a
+%   GUI is interrupted as little as possible in Matlab by tile downloads.
+%
+%   MAP() draws a map into GCA using the axes XLim and YLim as
+%   latitude and longitude.
+%
+%   MAP(COORDS) draws a map into GCA of some latitude/longitude
+%   coordinates, either
+%   - as an array: [minLon, maxLon, minLat, maxLat], or
+%   - as a struct: struct("minLon", minLon, "maxLon", maxLon, ...
+%                         "minLat", minLat, "maxLat", maxLat).
+%
+%   MAP(COORDS, STYLE) draws a map into GCA with a given style, which
+%   can be:
+%   - "osm" for OpenStreetMap's default look
+%   - "hot" for humanitarian focused OSM base layer
+%   - "ocm" for OpenCycleMap
+%   - "opm" for public transport map
+%   - "landscape" for Thunderforest landscape map
+%   - "outdoors" for Thunderforest outdoors map
 %   (from: http://wiki.openstreetmap.org/wiki/Tiles)
 %
-%   All map drawing is done asynchronously, so user interaction with a
-%   GUI is not interrupted by tile downloads.
+%   MAP(COORDS, STYLE, AX) draws the map int a given axes AX.
+%
+%   MAP(COORDS, STYLE, AX, BASEZOOM) changes tile resolution by a zoom
+%   factor. By default (BASEZOOM=0), tiles use the native screen
+%   resolution. However, big axes might require many tiles to download,
+%   which can take a long time. To lower resolution, use BASEZOOM=-1 or
+%   less. To increase resolution, use positive BASEZOOMs.
+%
+%   Example:
+%      Map() % draws a map of the world
+%      coords = [8.0 8.4 53.05 53.25]; % coordinates for Oldenburg
+%      Map(coords);             % draws a map of Oldenburg
+%      Map(coords, "ocm")       % draws a map for cycling
+%      Map(coords, [], [], -2); % draws a low-res map
 
 % Copyright (c) 2017, Bastian Bechtold
 % This code is released under the terms of the BSD 3-clause license
@@ -57,8 +82,12 @@ classdef Map < handle
         %MAP creates a Map on an axes with a certain style at coordinates
         %   This will download map tiles from the internet.
 
-            obj.ax = ax;
-            obj.ax.NextPlot = 'add';
+            if ~exist("ax") || isempty(ax)
+                obj.ax = gca();
+            else
+                obj.ax = ax;
+            end
+            obj.ax.NextPlot = "add";
 
             % add invisible markers at the coordinate system edges to allow
             % infinite panning. Otherwise, panning is restricted to drawn-in
@@ -68,19 +97,35 @@ classdef Map < handle
             h.MarkerFaceAlpha = 0; % invisible
 
             % schedule redraw and tile download when axis limits change:
-            addlistener(obj.ax, 'YLim', 'PostSet', @(~, ~)obj.asyncRedraw);
+            addlistener(obj.ax, "YLim", "PostSet", @(~, ~)obj.asyncRedraw);
             % to avoid redrawing on both XLim and YLim changes, we only
             % look for the latter, assuming that XLim-only changes are
             % rare for maps.
 
-            narginchk(1, 3);
-            if nargin >= 2
+            if ~exist("coords") || isempty(coords)
+                % get coords from axes limits:
+                obj.coords = struct(...
+                    "minLon", obj.ax.XLim(1), "maxLon", obj.ax.XLim(2), ...
+                    "minLat", obj.ax.YLim(1), "maxLat", obj.ax.YLim(2));
+            elseif isa(coords, "double") && length(coords) == 4
+                % coords are double array:
+                obj.coords = struct(...
+                    "minLon", coords(1), "maxLon", coords(2), ...
+                    "minLat", coords(3), "maxLat", coords(4));
+            elseif isa(coords, "struct") && all(sort(string(fieldnames(coords))) == ...
+                                                ["maxLat"; "maxLon"; "minLat"; "minLon"])
+                % coords are struct:
                 obj.coords = coords;
+            else
+                error("coords are not supported");
             end
-            if nargin >= 3
+
+            if ~exist("style") || isempty(style)
+                obj.style = "osm";
+            elseif any(style == string(fieldnames(obj.urls)))
                 obj.style = style;
             else
-                obj.style = 'osm';
+                error(sprintf("style %s is not supported", style));
             end
 
             if ~exist("baseZoom") || isempty(baseZoom)
