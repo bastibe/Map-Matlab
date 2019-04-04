@@ -52,12 +52,12 @@ classdef Map < handle
     properties (Hidden)
         % a list of OSM map servers where we can download tiles from:
         urls = struct(...
-            'osm', 'http://a.tile.openstreetmap.org', ...
-            'hot', 'http://a.tile.openstreetmap.fr/hot', ...
-            'ocm', 'http://a.tile.opencyclemap.org/cycle', ...
-            'opm', 'http://www.openptmap.org/tiles', ...
-            'landscape', 'http://a.tile.thunderforest.com/landscape', ...
-            'outdoors', 'http://a.tile.thunderforest.com/outdoors');
+            "osm", "http://a.tile.openstreetmap.org", ...
+            "hot", "http://a.tile.openstreetmap.fr/hot", ...
+            "ocm", "http://a.tile.opencyclemap.org/cycle", ...
+            "opm", "http://www.openptmap.org/tiles", ...
+            "landscape", "http://a.tile.thunderforest.com/landscape", ...
+            "outdoors", "http://a.tile.thunderforest.com/outdoors");
     end
 
     properties
@@ -73,8 +73,8 @@ classdef Map < handle
 
     properties (Dependent)
         coords         % the latitude/longitude coordinates to display.
-                       % This is a struct with keys 'minLon', 'maxLon',
-                       % 'minLat', 'maxLat' in degrees.
+                       % This is a struct with keys "minLon", "maxLon",
+                       % "minLat", "maxLat" in degrees.
     end
 
     methods
@@ -145,7 +145,7 @@ classdef Map < handle
 
             % If the user is panning, this function is triggered very often.
             % But only the latest redraw task needs to survive:
-            timers = timerfindall('Tag', 'mapredraw');
+            timers = timerfindall("Tag", "mapredraw");
             if ~isempty(timers)
                 stop(timers)
             end
@@ -155,12 +155,12 @@ classdef Map < handle
                 obj.redraw();
             end
             t.TimerFcn = @timerCallback;
-            t.BusyMode = 'queue';
+            t.BusyMode = "queue";
             % make sure the timer doesn't stay around when it's done:
             t.StopFcn = @(~,~)delete(t);
             % set a short delay, otherwise start(t) blocks:
             t.StartDelay = 0.1;
-            t.Tag = 'mapredraw';
+            t.Tag = "mapredraw";
             start(t);
         end
 
@@ -177,7 +177,7 @@ classdef Map < handle
             end
 
             if ~ishandle(obj.ax)
-                error('can''t draw on closed axes');
+                error("can't draw on closed axes");
             end
 
             [minX, maxX, minY, maxY] = obj.tileIndices();
@@ -194,7 +194,7 @@ classdef Map < handle
                 yesNo = im.UserData.zoom == obj.zoomLevel && ...
                         strcmp(im.UserData.style, obj.style);
             end
-            allTiles = findobj(obj.ax.Children, 'Tag', 'maptile');
+            allTiles = findobj(obj.ax.Children, "Tag", "maptile");
             if ~isempty(allTiles)
                 % bring all current tiles to the top of the tile stack,
                 % by pushing all non-current tiles to the bottom.
@@ -202,7 +202,7 @@ classdef Map < handle
                 %  over user-created plots)
                 nonCurrentTiles = allTiles(~arrayfun(@isCurrent, allTiles));
                 if ~isempty(nonCurrentTiles)
-                    uistack(nonCurrentTiles, 'bottom');
+                    uistack(nonCurrentTiles, "bottom");
                 end
             end
             % this is the offset of the tiles in the drawing order.
@@ -268,10 +268,10 @@ classdef Map < handle
         end
 
         function coords = get.coords(obj)
-            coords = struct('minLon', obj.ax.XLim(1), ...
-                            'maxLon', obj.ax.XLim(2), ...
-                            'minLat', obj.ax.YLim(1), ...
-                            'maxLat', obj.ax.YLim(2));
+            coords = struct("minLon", obj.ax.XLim(1), ...
+                            "maxLon", obj.ax.XLim(2), ...
+                            "minLat", obj.ax.YLim(1), ...
+                            "maxLat", obj.ax.YLim(2));
         end
 
         function set.coords(obj, coords)
@@ -302,9 +302,9 @@ classdef Map < handle
                 % format nice error message:
                 validFields = fieldnames(obj.urls);
                 % format field names for listing them:
-                validFields = cellfun(@(f)['''' f ''' '], validFields, ...
-                                      'uniformoutput', false);
-                error(['style must be one of ', ...
+                validFields = cellfun(@(f)["'" f "' "], validFields, ...
+                                      "uniformoutput", false);
+                error(["style must be one of ", ...
                        [validFields{:}]]);
             end
             obj.style = style;
@@ -337,7 +337,7 @@ classdef Map < handle
         %   according to obj.style and obj.zoomLevel.
 
             baseurl = obj.urls.(obj.style);
-            url = sprintf('%s/%i/%d/%d.png', baseurl, obj.zoomLevel, x, y);
+            url = sprintf("%s/%i/%d/%d.png", baseurl, obj.zoomLevel, x, y);
             [indices, cmap] = imread(url);
             imagedata = ind2rgb(indices, cmap);
         end
@@ -376,16 +376,16 @@ classdef Map < handle
         function str = formatLatLon(obj, lat, lon)
         %FORMATLATLON returns string representation oflatitude and longitude
 
-            str = '';
+            str = "";
             if lat > 0
-                str = [str sprintf('%.3f N, ', lat)];
+                str = str + sprintf("%.3f N, ", lat);
             else
-                str = [str sprintf('%.3f S, ', -lat)];
+                str = str + sprintf("%.3f S, ", -lat);
             end
             if lon > 0
-                str = [str sprintf('%.3f E', lon)];
+                str = str + sprintf("%.3f E", lon);
             else
-                str = [str sprintf('%.3f W', -lon)];
+                str = str + sprintf("%.3f W", -lon);
             end
         end
 
@@ -396,7 +396,7 @@ classdef Map < handle
         %   Returns an image instance otherwise.
 
             im = [];
-            tiles = findobj(obj.ax.Children, 'Tag', 'maptile');
+            tiles = findobj(obj.ax.Children, "Tag", "maptile");
             if isempty(tiles)
                 return
             end
