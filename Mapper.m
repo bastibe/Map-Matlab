@@ -37,28 +37,28 @@ classdef Mapper < handle
             end
 
             obj.placeLabel = uicontrol();
-            obj.placeLabel.Style = 'Text';
-            obj.placeLabel.String = 'Place:';
-            obj.placeLabel.Units = 'normalized';
+            obj.placeLabel.Style = "Text";
+            obj.placeLabel.String = "Place:";
+            obj.placeLabel.Units = "normalized";
             obj.placeLabel.Position = [0.1, 0.885, 0.15, 0.05];
 
             obj.placeEdit = uicontrol();
-            obj.placeEdit.Style = 'Edit';
-            obj.placeEdit.Units = 'normalized';
+            obj.placeEdit.Style = "Edit";
+            obj.placeEdit.Units = "normalized";
             obj.placeEdit.Position = [0.22, 0.89, 0.2, 0.05];
-            obj.placeEdit.HorizontalAlignment = 'left';
+            obj.placeEdit.HorizontalAlignment = "left";
             obj.placeEdit.Callback = @obj.placeEditCallback;
             obj.placeEdit.String = place;
 
             obj.styleLabel = uicontrol();
-            obj.styleLabel.Style = 'Text';
-            obj.styleLabel.String = 'Style:';
-            obj.styleLabel.Units = 'normalized';
+            obj.styleLabel.Style = "Text";
+            obj.styleLabel.String = "Style:";
+            obj.styleLabel.Units = "normalized";
             obj.styleLabel.Position = [0.5, 0.885, 0.15, 0.05];
 
             obj.stylePopup = uicontrol();
-            obj.stylePopup.Style = 'Popupmenu';
-            obj.stylePopup.Units = 'normalized';
+            obj.stylePopup.Style = "Popupmenu";
+            obj.stylePopup.Units = "normalized";
             obj.stylePopup.Position = [0.62, 0.89, 0.2, 0.05];
             obj.stylePopup.String = obj.map.possibleStyles;
             obj.stylePopup.Callback = @obj.styleSelectCallback;
@@ -78,12 +78,12 @@ classdef Mapper < handle
         %DOWNLOADCOORDS downloads longitude/latitude coordinates for a place
         %   using the google geocoding API.
         %
-        %   returns a struct with fields 'minLon', 'maxLon', 'minLat', and
-        %       'maxLat'.
+        %   returns a struct with fields "minLon", "maxLon", "minLat", and
+        %       "maxLat".
 
-            baseurl = 'https://nominatim.openstreetmap.org/search';
+            baseurl = "https://nominatim.openstreetmap.org/search";
             place = urlencode(place);
-            url = sprintf('%s?&city=%s&format=json', baseurl, place);
+            url = sprintf("%s?&city=%s&format=json", baseurl, place);
             data = jsondecode(urlread(url));
             if isstruct(data)
                 bbox = data(1).boundingbox;
@@ -91,10 +91,10 @@ classdef Mapper < handle
                 bbox = data{1}.boundingbox;
             end
             geometry = cellfun(@str2double, bbox);
-            coords = struct('minLon', geometry(3), ...
-                            'maxLon', geometry(4), ...
-                            'minLat', geometry(1), ...
-                            'maxLat', geometry(2));
+            coords = struct("minLon", geometry(3), ...
+                            "maxLon", geometry(4), ...
+                            "minLat", geometry(1), ...
+                            "maxLat", geometry(2));
             if coords.minLon > coords.maxLon
                 [coords.minLon, coords.maxLon] = ...
                     deal(coords.maxLon, coords.minLon);
@@ -111,7 +111,7 @@ classdef Mapper < handle
             try
                 coords = obj.downloadCoords(place);
             catch
-                warning(['can''t find ' place]);
+                warning(["can't find " place]);
                 return
             end
             obj.map.coords = coords;
