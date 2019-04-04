@@ -165,44 +165,61 @@ classdef Map < handle
             % draw above this.
             stackPositionFromTop = length(obj.ax.Children)-length(allTiles);
 
+            timers = timerfindall("Tag", "tileDownload");
+            if ~isempty(timers)
+                stop(timers)
+            end
+
             % download tiles in a one-tile radius around the plot area,
             % to enable the user to pan a bit without hitting empty tiles:
             for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel-1)
                 for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel-1)
-                    if ~isempty(obj.searchCache(x, y))
-                        continue
-                    end
-
-                    try
-                        imagedata = obj.downloadTile(x, y);
-                    catch
-                        warning(['couldn''t download tile at ', ...
-                                 obj.formatLatLon(obj.y2lat(y), ...
-                                                  obj.x2lon(x)), ...
-                                 sprintf(' (zoom level %i)', ...
-                                         obj.zoomLevel)]);
-                        continue
-                    end
-
-                    im = image(obj.ax, ...
-                               obj.x2lon([x, x+1]), ...
-                               obj.y2lat([y, y+1]), ...
-                               imagedata);
-                    im.UserData = struct('x', x, 'y', y, ...
-                                         'zoom', obj.zoomLevel, ...
-                                         'style', obj.style);
-                    im.Tag = 'maptile';
-
-                    % make sure the tile is drawn below other plots:
-                    uistack(im, 'down', stackPositionFromTop);
-
-                    % skip drawing updated invisible tiles for performance
-                    if x >= minX && x <= maxX && y >= minY && y <= maxY
-                        drawnow();
-                    end
+                    t = timer();
+                    timerCallback = @(~,~) obj.drawTile(x, y, minX, maxX, minY, maxY, stackPositionFromTop);
+                    t.TimerFcn = timerCallback;
+                    t.BusyMode = "queue";
+                    % make sure the timer doesn't stay around when it's done:
+                    t.StopFcn = @(~,~)delete(t);
+                    % set a short delay, otherwise start(t) blocks:
+                    t.StartDelay = 0.01;
+                    t.Tag = "tileDownload";
                 end
             end
-            drawnow();
+            start(timerfindall("Tag", "tileDownload"));
+        end
+
+        function drawTile(obj, x, y, minX, maxX, minY, maxY, stackPositionFromTop)
+            if ~isempty(obj.searchCache(x, y))
+                return
+            end
+
+            try
+                imagedata = obj.downloadTile(x, y);
+            catch
+                warning("couldn't download tile at " + ...
+                        obj.formatLatLon(obj.y2lat(y), ...
+                                         obj.x2lon(x)) + ...
+                        sprintf(" (zoom level %i)", ...
+                                obj.zoomLevel));
+                return
+            end
+
+            im = image(obj.ax, ...
+                       obj.x2lon([x, x+1]), ...
+                       obj.y2lat([y, y+1]), ...
+                       imagedata);
+            im.UserData = struct("x", x, "y", y, ...
+                                 "zoom", obj.zoomLevel, ...
+                                 "style", obj.style);
+            im.Tag = "maptile";
+
+            % make sure the tile is drawn below other plots:
+            uistack(im, "down", stackPositionFromTop);
+
+            % skip drawing updated invisible tiles for performance
+            if x >= minX && x <= maxX && y >= minY && y <= maxY
+                drawnow();
+            end
         end
 
         function coords = get.coords(obj)
