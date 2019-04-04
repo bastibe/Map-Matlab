@@ -58,6 +58,7 @@ classdef Map < handle
             "opm", "http://www.openptmap.org/tiles", ...
             "landscape", "http://a.tile.thunderforest.com/landscape", ...
             "outdoors", "http://a.tile.thunderforest.com/outdoors");
+        coordCache;
     end
 
     properties
@@ -96,11 +97,26 @@ classdef Map < handle
             h.MarkerEdgeAlpha = 0; % invisible
             h.MarkerFaceAlpha = 0; % invisible
 
-            % schedule redraw and tile download when axis limits change:
-            addlistener(obj.ax, "YLim", "PostSet", @(~, ~)obj.asyncRedraw);
-            % to avoid redrawing on both XLim and YLim changes, we only
-            % look for the latter, assuming that XLim-only changes are
-            % rare for maps.
+            % regularly check if the map needs updating:
+            obj.coordCache = [obj.ax.XLim, obj.ax.YLim, getpixelposition(obj.ax)];
+            function redrawMaybe(~,~)
+                if ~ishandle(obj.ax)
+                    return % the axis was closed, we are shutting down.
+                end
+                newCoords = [obj.ax.XLim, obj.ax.YLim, getpixelposition(obj.ax)];
+                if any(obj.coordCache ~= newCoords)
+                    obj.coordCache = newCoords;
+                    obj.asyncRedraw();
+                end
+            end
+            t = timer();
+            t.BusyMode = "drop";
+            t.ExecutionMode = "fixedSpacing";
+            t.Period = 0.25;
+            t.TimerFcn = @redrawMaybe;
+            t.Tag = "mapupdate";
+            t.StopFcn = @(~,~)delete(t);
+            start(t);
 
             if ~exist("coords") || isempty(coords)
                 % get coords from axes limits:
@@ -137,6 +153,16 @@ classdef Map < handle
             end
         end
 
+        function delete(obj)
+            for name=["mapupdate" "mapredraw" "tiledownload"]
+                timers = timerfindall("Tag", name);
+                if ~isempty(timers)
+                    stop(timers)
+                    delete(timers)
+                end
+            end
+        end
+
         function asyncRedraw(obj)
         %ASYNCREDRAW schedules a redraw very soon
         %   This is called every time the axis limits change, i.e. on every
@@ -151,10 +177,7 @@ classdef Map < handle
             end
 
             t = timer();
-            function timerCallback(~, ~)
-                obj.redraw();
-            end
-            t.TimerFcn = @timerCallback;
+            t.TimerFcn = @(~,~)obj.redraw();
             t.BusyMode = "queue";
             % make sure the timer doesn't stay around when it's done:
             t.StopFcn = @(~,~)delete(t);
@@ -177,7 +200,7 @@ classdef Map < handle
             end
 
             if ~ishandle(obj.ax)
-                error("can't draw on closed axes");
+                return % the axis was closed, we are shutting down.
             end
 
             [minX, maxX, minY, maxY] = obj.tileIndices();
@@ -189,28 +212,18 @@ classdef Map < handle
             mercatorCorrection = cos(mean(obj.ax.YLim)/180*pi);
             obj.ax.PlotBoxAspectRatio = [mercatorCorrection*aspectRatio, 1, 1];
 
-            function yesNo = isCurrent(im)
-            %ISCURRENT identifies current images
-                yesNo = im.UserData.zoom == obj.zoomLevel && ...
-                        strcmp(im.UserData.style, obj.style);
-            end
-            allTiles = findobj(obj.ax.Children, "Tag", "maptile");
-            if ~isempty(allTiles)
-                % bring all current tiles to the top of the tile stack,
-                % by pushing all non-current tiles to the bottom.
-                % (we don't push tiles to the top, to prevent drawing
-                %  over user-created plots)
-                nonCurrentTiles = allTiles(~arrayfun(@isCurrent, allTiles));
-                if ~isempty(nonCurrentTiles)
-                    uistack(nonCurrentTiles, "bottom");
-                end
-            end
-            % this is the offset of the tiles in the drawing order.
-            % Anything above this is user-generated. We should never
-            % draw above this.
-            stackPositionFromTop = length(obj.ax.Children)-length(allTiles);
+            % bring this tile to the top of the draw stack, but below
+            % any user-created graphics objects:
+            drawObjects = obj.ax.Children;
+            isTile = arrayfun(@(o)o.Tag == "maptile", drawObjects);
+            isCurrentTile = arrayfun(@(o)o.Tag == "maptile" && ...
+                                     o.UserData.zoom == obj.zoomLevel && ...
+                                     o.UserData.style == string(obj.style), drawObjects);
+            isOldTile = isTile & ~isCurrentTile;
+            isOther = ~isTile;
+            obj.ax.Children = [drawObjects(isOther); drawObjects(isCurrentTile); drawObjects(isOldTile)];
 
-            timers = timerfindall("Tag", "tileDownload");
+            timers = timerfindall("Tag", "tiledownload");
             if ~isempty(timers)
                 stop(timers)
             end
@@ -220,20 +233,23 @@ classdef Map < handle
             for x=max(0, (minX-1)):min((maxX+1), 2^obj.zoomLevel-1)
                 for y=max(0, (minY-1)):min((maxY+1), 2^obj.zoomLevel-1)
                     t = timer();
-                    timerCallback = @(~,~) obj.drawTile(x, y, minX, maxX, minY, maxY, stackPositionFromTop);
-                    t.TimerFcn = timerCallback;
+                    t.TimerFcn = @(~,~) obj.drawTile(x, y, minX, maxX, minY, maxY);
                     t.BusyMode = "queue";
                     % make sure the timer doesn't stay around when it's done:
                     t.StopFcn = @(~,~)delete(t);
                     % set a short delay, otherwise start(t) blocks:
                     t.StartDelay = 0.01;
-                    t.Tag = "tileDownload";
+                    t.Tag = "tiledownload";
                 end
             end
-            start(timerfindall("Tag", "tileDownload"));
+            start(timerfindall("Tag", "tiledownload"));
         end
 
-        function drawTile(obj, x, y, minX, maxX, minY, maxY, stackPositionFromTop)
+        function drawTile(obj, x, y, minX, maxX, minY, maxY)
+            if ~ishandle(obj.ax)
+                return % the axis was closed, we are shutting down
+            end
+
             if ~isempty(obj.searchCache(x, y))
                 return
             end
@@ -258,8 +274,12 @@ classdef Map < handle
                                  "style", obj.style);
             im.Tag = "maptile";
 
-            % make sure the tile is drawn below other plots:
-            uistack(im, "down", stackPositionFromTop);
+            % bring this tile to the top of the draw stack, but below
+            % any user-created graphics objects:
+            drawObjects = obj.ax.Children;
+            isTile = arrayfun(@(o)o.Tag == "maptile" && o ~= im, drawObjects);
+            isOther = ~(isTile | drawObjects == im);
+            obj.ax.Children = [drawObjects(isOther); im; drawObjects(isTile)];
 
             % skip drawing updated invisible tiles for performance
             if x >= minX && x <= maxX && y >= minY && y <= maxY
