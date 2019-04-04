@@ -25,7 +25,7 @@ classdef Mapper < handle
             obj.fig = figure();
             mapax = axes(obj.fig);
             mapax.Position = [0.05, 0.15, 0.9, 0.7];
-            obj.map = Map(mapax);
+            obj.map = Map([], [], mapax);
             if nargin < 1
                 place = [];
             end
