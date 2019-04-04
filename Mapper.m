@@ -22,49 +22,54 @@ classdef Mapper < handle
         function obj = Mapper(place, style)
         %MAPPER creates a new mapper instance at place with style
 
-            obj.fig = figure();
-            mapax = axes(obj.fig);
-            mapax.Position = [0.05, 0.15, 0.9, 0.7];
-            obj.map = Map([], [], mapax);
-            if nargin < 1
-                place = [];
-            end
-            if nargin < 2
-                style = [];
-            end
-            if isempty(style)
-                style = obj.map.style;
-            end
+            obj.fig = uifigure();
+            grid = uigridlayout(obj.fig);
+            grid.RowHeight = {30, "1x"};
+            grid.ColumnWidth = {50 100 "1x" 50 100};
 
-            obj.placeLabel = uicontrol();
-            obj.placeLabel.Style = "Text";
-            obj.placeLabel.String = "Place:";
-            obj.placeLabel.Units = "normalized";
-            obj.placeLabel.Position = [0.1, 0.885, 0.15, 0.05];
+            obj.placeLabel = uilabel(grid);
+            obj.placeLabel.Text = "Place:";
+            obj.placeLabel.Layout.Row = 1;
+            obj.placeLabel.Layout.Column = 1;
 
-            obj.placeEdit = uicontrol();
-            obj.placeEdit.Style = "Edit";
-            obj.placeEdit.Units = "normalized";
-            obj.placeEdit.Position = [0.22, 0.89, 0.2, 0.05];
+            obj.placeEdit = uieditfield(grid);
+            obj.placeEdit.Layout.Row = 1;
+            obj.placeEdit.Layout.Column = 2;
             obj.placeEdit.HorizontalAlignment = "left";
-            obj.placeEdit.Callback = @obj.placeEditCallback;
-            obj.placeEdit.String = place;
+            obj.placeEdit.ValueChangedFcn = @obj.placeEditCallback;
+            if exist("place") && ~isempty(place)
+                obj.placeEdit.Value = place;
+            end
 
-            obj.styleLabel = uicontrol();
-            obj.styleLabel.Style = "Text";
-            obj.styleLabel.String = "Style:";
-            obj.styleLabel.Units = "normalized";
-            obj.styleLabel.Position = [0.5, 0.885, 0.15, 0.05];
+            obj.styleLabel = uilabel(grid);
+            obj.styleLabel.Text = "Style:";
+            obj.styleLabel.Layout.Row = 1;
+            obj.styleLabel.Layout.Column = 4;
 
-            obj.stylePopup = uicontrol();
-            obj.stylePopup.Style = "Popupmenu";
-            obj.stylePopup.Units = "normalized";
-            obj.stylePopup.Position = [0.62, 0.89, 0.2, 0.05];
-            obj.stylePopup.String = obj.map.possibleStyles;
-            obj.stylePopup.Callback = @obj.styleSelectCallback;
+            obj.stylePopup = uidropdown(grid);
+            obj.stylePopup.Layout.Row = 1;
+            obj.stylePopup.Layout.Column = 5;
+            obj.stylePopup.ValueChangedFcn = @obj.styleSelectCallback;
 
-            obj.map.style = style;
-            obj.setPlace(place);
+            mapax = uiaxes(grid);
+            mapax.Layout.Row = 2;
+            mapax.Layout.Column = [1 5];
+
+            drawnow();
+            obj.map = Map([], [], mapax, -1);
+            obj.stylePopup.Items = obj.map.possibleStyles;
+            obj.stylePopup.Value = obj.map.style;
+
+            if ~exist("place")
+                place = [];
+            elseif ~isempty(place)
+                obj.setPlace(place);
+            end
+            if ~exist("style")
+                style = [];
+            elseif ~isempty(style)
+                obj.map.style = style;
+            end
         end
 
         function delete(obj)
@@ -118,11 +123,11 @@ classdef Mapper < handle
         end
 
         function placeEditCallback(obj, target, event)
-            obj.setPlace(target.String);
+            obj.setPlace(target.Value);
         end
 
         function styleSelectCallback(obj, target, event)
-            obj.map.style = target.String{target.Value};
+            obj.map.style = target.Value;
         end
     end
 end
